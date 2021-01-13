@@ -20,17 +20,34 @@
         </van-col>
       </van-row>
     </van-pull-refresh>
+    <div v-for="(item,index) in userChatSnapshot" :key="index">
+      <div style="width: 100%; height: 45px; margin-top: 10px;" @click="chatting(item)">
+        <van-badge :content="5">
+          <img :src="item.faceImage"
+          width="40px" height="45px" style=" float: left; margin-left: 10px;"/>
+        </van-badge>
+        <div style="float: left; height: 45px; margin-left: 10px;">
+          <div style="height: 35px;text-align: left;line-height: 35px;">{{item.nickName}}
+            <!-- <van-icon v-if="item.isRead === true"/> -->
+          </div>
+          <div style="height: 15px; font-size: 12px;line-height: 15px;">{{item.message}}</div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
-import { Dialog, Toast } from 'vant'
+import { Dialog, Toast, Badge } from 'vant'
 export default {
   name: 'Chat',
   components: {
   },
   data () {
     return {
+      userChatSnapshot: [],
+      socket: '',
+      userId: this.$store.state.user.id,
       isLoading: false,
       friendRequest: [],
       friend: []
@@ -38,8 +55,34 @@ export default {
   },
   mounted () {
     this.getFriendRequest()
+    this.global.getUserChatSnapshot(this.$store.state.user.id).map(item => {
+      console.log('item.friendId=' + item.friendId)
+      console.log('item.msg=' + item.msg)
+      console.log('item.msg=' + item.isRead)
+      var friend = this.getFriendFromStore(item.friendId)
+      console.log('faceImage=' + friend.friendFaceImage)
+      console.log('nickName=' + friend.friendNickname)
+      this.userChatSnapshot.push({ friendId: item.friendId, message: item.msg, isRead: item.isRead, faceImage: friend.friendFaceImage, nickName: friend.friendNickname })
+    })
   },
   methods: {
+    chatting (info) {
+      console.log(info)
+      this.global.getUserChatSnapshot(this.userId, info.friendId)
+      this.$router.push({ path: '/chatting', query: { friendUserId: info.friendId, friendNickname: info.nickName, friendFaceImage: info.faceImage } })
+    },
+    getFriendFromStore (friendId) {
+      var friendList = this.$store.state.firendList
+      for (var i = 0; i < friendList.length; i++) {
+        var list = friendList[i].list
+        for (var j = 0; j < list.length; j++) {
+          if (list[j].friendUserId === friendId) {
+            // 删除已经存在的friendId所对应的快照对象
+            return list[j]
+          }
+        }
+      }
+    },
     onRefresh () {
       setTimeout(() => {
         Toast('刷新成功')
@@ -57,7 +100,6 @@ export default {
         }
       }).then((response) => {
         if (response.status === 200) {
-          console.log(response)
           this.friendRequest = response.data
         } else {
           Dialog({ message: response.msg })
@@ -76,7 +118,6 @@ export default {
         }
       }).then((response) => {
         if (response.status === 200) {
-          console.log(response)
           Dialog({ message: response.msg })
           this.getFriendRequest()
         } else {

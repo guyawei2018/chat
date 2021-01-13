@@ -4,6 +4,23 @@
   </div>
 </template>
 
+<script>
+export default {
+  name: 'app',
+  components: {
+  },
+  data () {
+    return {
+    }
+  },
+  mounted () {
+  },
+  methods: {
+
+  }
+}
+</script>
+
 <style lang="stylus">
 #app
   font-family Avenir, Helvetica, Arial, sans-serif

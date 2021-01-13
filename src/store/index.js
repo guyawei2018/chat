@@ -7,7 +7,8 @@ export default new Vuex.Store({
   state: {
     token: '',
     user: {},
-    firendList: []
+    firendList: [],
+    timeOut: null
   },
   mutations: {
     EDIT_TOKEN (state, token) {
@@ -18,6 +19,9 @@ export default new Vuex.Store({
     },
     EDIT_USER (state, user) {
       state.user = user
+    },
+    TIMEOUT (state, timeOut) {
+      state.timeOut = timeOut
     }
   },
   actions: {

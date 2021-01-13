@@ -68,6 +68,8 @@ export default {
       this.show = true
     },
     logout () {
+      clearInterval(this.$store.state.timeOut)
+      this.global.ws.close()
       this.$router.push({ path: '/' })
     }
   }

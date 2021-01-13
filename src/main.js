@@ -8,13 +8,15 @@ import axios from 'axios'
 import Router from 'vue-router'
 import Mui from 'vue-awesome-mui'
 import './base/base.js'
+import global from './base/global.js'
 
 Vue.use(Vant)
 Vue.use(Mui)
 Vue.prototype.$axios = axios
 Vue.config.productionTip = false
+Vue.prototype.global = global
 
-axios.defaults.baseURL = 'http://192.168.3.153:18001'
+axios.defaults.baseURL = 'http://192.168.3.73:18001'
 // axios.defaults.baseURL = 'http://guyw.top:28001'
 Vue.use(Router)
 const originalPush = Router.prototype.push

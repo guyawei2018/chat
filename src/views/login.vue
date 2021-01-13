@@ -6,6 +6,7 @@
       <img src="http://guyw.top:10080/chat/M00/00/00/wKhkqV8_kByAFZyrAAGLr2kzHow903_big.png"
       height="180px" width="150px"/>
       <van-form @submit="onSubmit">
+        <van-badge :content="20" />
         <van-field
           v-model="tel" type="tel" label="手机号码" placeholder="手机号码"
           :rules="[{ required: true, message: '请填写手机号码' }]" />
@@ -31,7 +32,7 @@
 </template>
 
 <script>
-import { Dialog } from 'vant'
+// import { Dialog } from 'vant'
 export default {
   name: 'Login',
   components: {
@@ -101,11 +102,32 @@ export default {
         console.log(response)
         if (response.status === 200) {
           this.$store.commit('EDIT_USER', response.data)
-          this.$router.push({ path: '/index' })
+          this.getFriendList()
         } else {
           Dialog({ message: response.data.msg })
         }
       })
+    },
+    getFriendList () {
+      const friendList = this.$store.state.firendList
+      if (friendList.length === 0) {
+        this.$axios({
+          method: 'get',
+          url: '/chat/address/list',
+          responseType: 'json',
+          params: {
+            userId: this.$store.state.user.id
+          }
+        }).then((response) => {
+          if (response.status === 200) {
+            console.log(response)
+            this.$store.commit('EDIT_FRIENDLIST', response.data)
+            this.$router.push({ path: '/index', query: { flag: 1 } })
+          } else {
+            Dialog({ message: response.msg })
+          }
+        })
+      }
     }
   }
 }

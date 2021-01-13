@@ -18,19 +18,27 @@
 </template>
 
 <script>
+import { Dialog } from 'vant'
 export default {
   name: 'Index',
   components: {
   },
   data () {
     return {
+      wsPath: 'ws://192.168.3.73:8088/ws',
       active: 0,
-      count: 5,
+      count: 0,
       flag: false,
       title: '轻聊'
     }
   },
   mounted () {
+    console.log(this.$route.query.flag)
+    if (this.$route.query.flag !== undefined || this.$route.query.flag === 1) {
+      this.getFriendList()
+      this.init()
+
+    }
     if (this.$route.query.num === undefined || this.$route.query.num === null) {
       this.active = 0
       this.$router.push({ path: '/chat' })
@@ -48,6 +56,26 @@ export default {
     }
   },
   methods: {
+    getFriendList () {
+      const friendList = this.$store.state.firendList
+      if (friendList.length === 0) {
+        this.$axios({
+          method: 'get',
+          url: '/chat/address/list',
+          responseType: 'json',
+          params: {
+            userId: this.$store.state.user.id
+          }
+        }).then((response) => {
+          if (response.status === 200) {
+            console.log(response)
+            this.$store.commit('EDIT_FRIENDLIST', response.data)
+          } else {
+            Dialog({ message: response.msg })
+          }
+        })
+      }
+    },
     changeTitle (val) {
       this.flag = true
       if (val === 0) {
@@ -59,6 +87,59 @@ export default {
       } else {
         this.title = '我'
       }
+    },
+    init () {
+      const that = this
+      if (typeof (WebSocket) === 'undefined') {
+        alert('手机不支持，请更换……')
+      } else {
+        // 实例化socket
+        that.socket = new WebSocket(that.wsPath)
+        that.global.setWs(that.socket)
+        // 监听socket连接
+        that.socket.onopen = that.open
+        // 监听socket错误信息
+        that.socket.onerror = that.error
+        that.socket.onmessage = this.getMessage
+      }
+    },
+    open () {
+      const _this = this
+      var heartCheck = {
+        timeout: 5000,
+        reset: function () {
+          clearInterval(_this.$store.state.timeOut)
+          return this
+        },
+        start: function () {
+          if (_this.global.ws.readyState !== WebSocket.OPEN) {
+            _this.init()
+          }
+          const timeOut = setInterval(function () {
+            // 心跳包发送
+            const chatmsg = _this.chatMsg('', '', '', '')
+            const datacontent = _this.dataContent(_this.$KEEPALIVE, chatmsg, '')
+            console.log(JSON.stringify(datacontent))
+            _this.global.ws.send(JSON.stringify(datacontent))
+          }, this.timeout)
+          _this.$store.commit('TIMEOUT', timeOut)
+        }
+      }
+      heartCheck.reset().start()
+      console.log('socket 连接成功')
+      const chatmsg = _this.chatMsg(this.$store.state.user.id, '', '', '')
+      const datacontent = _this.dataContent(_this.$CONNECT, chatmsg, '')
+      _this.global.ws.send(JSON.stringify(datacontent))
+    },
+    getMessage (msg) {
+      console.log(msg)
+      if (this.$CHAT === JSON.parse(msg.data).action) {
+        this.global.saveUserChatHistory(this.userId, JSON.parse(msg.data).chatmsg.senderId, JSON.parse(msg.data).chatmsg.msg, 1, this)
+        this.global.saveUserChatSnapshot(this.userId, JSON.parse(msg.data).chatmsg.senderId, JSON.parse(msg.data).chatmsg.msg, false, this)
+      }
+    },
+    error () {
+      console.log('socket 连接失败')
     }
   }
 }

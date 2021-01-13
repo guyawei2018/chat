@@ -40,7 +40,7 @@ export default {
   },
   data () {
     return {
-      wsPath: 'ws://192.168.3.153:8088/ws',
+      wsPath: 'ws://192.168.3.73:8088/ws',
       // wsPath: 'ws://guyw.top:28088/ws',
       socket: '',
       messageLog: [
@@ -60,8 +60,6 @@ export default {
   created () {
     this.$nextTick(function () {
       this.$refs.box.scrollTop = this.$refs.box.scrollHeight
-      console.log('当前滚动条位置:' + this.$refs.box.scrollTop)
-      console.log('当前可滚动区域容器的高度:' + this.$refs.box.scrollHeight)
     })
   },
   mounted () {
@@ -71,6 +69,11 @@ export default {
       this.friendUserId = this.$route.query.friendUserId
     }
     this.init()
+    this.global.getUserChatHistory(this.userId, this.friendUserId).map(item => {
+      console.log('item.flag=' + item.flag)
+      console.log('item.msg=' + item.msg)
+      this.messageLog.push({ flag: item.flag, message: item.msg })
+    })
   },
   methods: {
     onClickLeft () {
@@ -85,30 +88,34 @@ export default {
         })
         return ''
       }
+      const status = plus.networkinfo.getCurrentType()
+      if (status === 0 || status === 1) {
+        Toast({
+          message: '网络不佳',
+          icon: 'chat-o'
+        })
+        return
+      }
       const chatmsg = this.chatMsg(this.userId, this.friendUserId, this.message, '')
       const datacontent = this.dataContent(this.$CHAT, chatmsg, '')
       console.log(JSON.stringify(datacontent))
       this.messageLog.push({ flag: 2, message: this.message })
       this.send(JSON.stringify(datacontent))
+      this.global.saveUserChatHistory(this.userId, this.friendUserId, this.message, 2, this)
+      this.global.saveUserChatSnapshot(this.userId, this.friendUserId, this.message, true, this)
       this.message = ''
       this.$nextTick(function () {
         this.$refs.box.scrollTop = this.$refs.box.scrollHeight
       })
-      // const status = plus.networkinfo.getCurrentType()
-      // if (status === 0 || status === 1) {
-      //   Toast({
-      //     message: '网络不佳',
-      //     icon: 'chat-o'
-      //   })
-      //   return
-      // }
+      this.playSendMsgSound()
     },
     playSendMsgSound () {
-      const audioPlayer = puls.audio.createPlayer('../../../assets/mp3/send.mp3')
+      console.log('调用音频')
+      const audioPlayer = plus.audio.createPlayer('../../../assets/mp3/send.mp3')
       audioPlayer.play()
     },
     playReceivemsgSound () {
-      const audioPlayer = puls.audio.createPlayer('../../../assets/mp3/di_didi.mp3')
+      const audioPlayer = plus.audio.createPlayer('../../../assets/mp3/msn.mp3')
       audioPlayer.play()
     },
     init () {
@@ -116,73 +123,77 @@ export default {
         alert('手机不支持，请更换……')
       } else {
         // 实例化socket
-        this.socket = new WebSocket(this.wsPath)
+        // this.socket = new WebSocket(this.wsPath)
+        this.socket = this.global.ws
         // 监听socket连接
-        this.socket.onopen = this.open
+        // this.socket.onopen = this.open
         // 监听socket错误信息
-        this.socket.onerror = this.error
+        // this.socket.onerror = this.error
         // 监听socket消息
         this.socket.onmessage = this.getMessage
       }
     },
-    open () {
-      const _this = this
-      var heartCheck = {
-        timeout: 5000,
-        reset: function () {
-          clearInterval(_this.timeoutObj)
-          return this
-        },
-        start: function () {
-          if (_this.socket.readyState !== WebSocket.OPEN) {
-            _this.init()
-          }
-          _this.timeoutObj = setInterval(function () {
-            // 心跳包发送
-            const chatmsg = _this.chatMsg('', '', '', '')
-            const datacontent = _this.dataContent(_this.$KEEPALIVE, chatmsg, '')
-            console.log(JSON.stringify(datacontent))
-            _this.socket.send(JSON.stringify(datacontent))
-          }, this.timeout)
-        }
-      }
-      heartCheck.reset().start()
-      console.log('socket 连接成功')
-      const chatmsg = _this.chatMsg(_this.userId, _this.friendUserId, '', '')
-      const datacontent = _this.dataContent(_this.$CONNECT, chatmsg, '')
-      _this.send(JSON.stringify(datacontent))
-    },
-    error () {
-      console.log('socket 连接失败')
-    },
+    // open () {
+    //   const _this = this
+    //   var heartCheck = {
+    //     timeout: 5000,
+    //     reset: function () {
+    //       clearInterval(_this.timeoutObj)
+    //       return this
+    //     },
+    //     start: function () {
+    //       if (_this.socket.readyState !== WebSocket.OPEN) {
+    //         _this.init()
+    //       }
+    //       _this.timeoutObj = setInterval(function () {
+    //         // 心跳包发送
+    //         const chatmsg = _this.chatMsg('', '', '', '')
+    //         const datacontent = _this.dataContent(_this.$KEEPALIVE, chatmsg, '')
+    //         console.log(JSON.stringify(datacontent))
+    //         _this.socket.send(JSON.stringify(datacontent))
+    //       }, this.timeout)
+    //     }
+    //   }
+    //   heartCheck.reset().start()
+    //   console.log('socket 连接成功')
+    //   const chatmsg = _this.chatMsg(_this.userId, _this.friendUserId, '', '')
+    //   const datacontent = _this.dataContent(_this.$CONNECT, chatmsg, '')
+    //   _this.send(JSON.stringify(datacontent))
+    // },
+    // error () {
+    //   console.log('socket 连接失败')
+    // },
     getMessage (msg) {
       console.log(msg)
-      this.messageLog.push({ flag: 1, message: JSON.parse(msg.data).chatmsg.msg })
-      this.$nextTick(function () {
-        this.$refs.box.scrollTop = this.$refs.box.scrollHeight
-      })
-      // 消息签收
-      const datacontent = this.dataContent(this.$SIGNED, null, JSON.parse(msg.data).chatmsg.msgId)
-      this.send(JSON.stringify(datacontent))
+      if (this.$CHAT === JSON.parse(msg.data).action) {
+        this.messageLog.push({ flag: 1, message: JSON.parse(msg.data).chatmsg.msg })
+        this.$nextTick(function () {
+          this.$refs.box.scrollTop = this.$refs.box.scrollHeight
+        })
+        this.global.saveUserChatHistory(this.userId, this.friendUserId, JSON.parse(msg.data).chatmsg.msg, 1, this)
+        this.global.saveUserChatSnapshot(this.userId, this.friendUserId, JSON.parse(msg.data).chatmsg.msg, true, this)
+        // 消息签收
+        const datacontent = this.dataContent(this.$SIGNED, null, JSON.parse(msg.data).chatmsg.msgId)
+        this.send(JSON.stringify(datacontent))
+      }
     },
     send (params) {
       if (this.socket.readyState !== WebSocket.OPEN) {
-        this.init()
         setTimeout(() => {
           this.socket.send(params)
         }, 2000)
         return
       }
       this.socket.send(params)
-    },
-    close () {
-      this.socket.close()
-      console.log('socket 已经关闭')
     }
+    // close () {
+    //   this.socket.close()
+    //   console.log('socket 已经关闭')
+    // }
   },
   destroyed () {
     clearInterval(this.timeoutObj)
-    this.socket.onclose = this.close()
+    // this.socket.onclose = this.close()
   }
 }
 </script>
